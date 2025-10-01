@@ -1,0 +1,13 @@
+import re
+
+digit_words = {'0': 'ноль', '1': 'один', '2': 'два', '3': 'три', '4': 'четыре',
+               '5': 'пять', '6': 'шесть', '7': 'семь', '8': 'восемь', '9': 'девять'}
+
+search_digit = input("Введите цифру для поиска: ")
+text = input("Введите текст с числами: ")
+
+numbers = re.findall(r'\b22\d*[13579]\b', text)
+
+for number in numbers:
+    count = number.count(search_digit)
+    print(f"{number}-{digit_words.get(search_digit, 'ноль')}-{count}")
