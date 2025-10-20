@@ -3,15 +3,16 @@
 #    Все остальные требования соответствуют варианту задания лабораторной работы №1.
 import re
 
-d = {'0': 'ноль', '1': 'один', '2': 'два', '3': 'три', '4': 'четыре', '5': 'пять', '6': 'шесть', '7': 'семь',
-     '8': 'восемь', '9': 'девять'}
+d = {'0': 'ноль', '1': 'один', '2': 'два', '3': 'три', '4': 'четыре',
+     '5': 'пять', '6': 'шесть', '7': 'семь', '8': 'восемь', '9': 'девять'}
+
 c = input("Цифра: ")
 
 with open('input.txt') as f:
     text = f.read()
+    numbers = re.findall(r'22\d*[13579]\b', text)
 
-numbers = re.findall(r'\b22\d*[13579]\b', text)
+    for num in numbers:
+        count = num.count(c)
+        print(f"{num}-{d[str(count)]}")
 
-for number in numbers:
-    count = number.count(c)
-    print(f"{number}-{d.get(c, 'ноль')}-{count}")
