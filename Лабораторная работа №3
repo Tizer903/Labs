@@ -8,50 +8,44 @@ def print_m(m, name):
 def main():
     K, N = int(input("K = ")), int(input("N = "))
 
-    # Создаем матрицу A
     A = []
     for i in range(N):
         row = []
         for j in range(N):
-            row.append(i * N + j - 8)  # целенаправленные числа
+            row.append(i * N + j - 8)  
         A.append(row)
     print_m(A, "A")
 
     h = N // 2
 
-    # Разделяем на подматрицы
     D = [A[i][:h] for i in range(h)]
     E = [A[i][h:] for i in range(h)]
     C = [A[i + h][:h] for i in range(h)]
     B = [A[i + h][h:] for i in range(h)]
 
-    # Проверяем условие
-    # Область 2 в B - нижняя половина (индексы h/2 до h)
     zero_rows = 0
-    for i in range(h // 2, h):  # нижняя половина B
+    for i in range(h // 2, h):
         all_zero = True
-        for j in range(0, h, 2):  # четные столбцы
+        for j in range(0, h, 2):
             if B[i][j] != 0:
                 all_zero = False
                 break
         if all_zero:
             zero_rows += 1
 
-    # Область 4 в E - верхняя половина (индексы 0 до h/2)
     pos_sum = 0
-    for i in range(0, h // 2, 2):  # четные строки в верхней половине
+    for i in range(0, h // 2, 2):
         for j in range(h):
             if E[i][j] > 0:
                 pos_sum += E[i][j]
 
     print(f"Нулевые строки в B: {zero_rows}, Сумма в E: {pos_sum}")
 
-    # Создаем F (копия A)
     F = [row[:] for row in A]
 
     if zero_rows > pos_sum:
         print("Меняем области в C симметрично")
-        # Меняем области 1(правая) и 2(нижняя) в C
+
         for i in range(h // 2, h):
             for j in range(h // 2, h):
                 F[i + h][j], F[h + h - 1 - i][h - 1 - j] = F[h + h - 1 - i][h - 1 - j], F[i + h][j]
@@ -63,7 +57,6 @@ def main():
 
     print_m(F, "F")
 
-    # Вычисляем ((K*F)*A - (K*A^T))
     KF = [[F[i][j] * K for j in range(N)] for i in range(N)]
     print_m(KF, "K*F")
 
