@@ -1,0 +1,135 @@
+#Формируется матрица F следующим образом: скопировать в нее А и если в В количество строк, состоящих из одних нулей в четных столбцах, чем сумма положительных  элементов в четных строках, то поменять местами Е и С симметрично, иначе В и Е поменять местами несимметрично. При этом матрица А не меняется. После чего если определитель матрицы А больше суммы диагональных элементов матрицы F, то вычисляется выражение: A-1*AT – K * F-1, иначе вычисляется выражение (AТ +G-FТ)*K, где G-нижняя треугольная матрица, полученная из А. Выводятся по мере формирования А, F и все матричные операции последовательно.
+import numpy as np
+import matplotlib.pyplot as plt
+
+np.set_printoptions(precision=2, suppress=True)
+
+def read_matrix(filename, n=None):
+    A_full = np.loadtxt(filename, dtype=float)
+    if n is None:
+        return A_full
+    N = A_full.shape[0]
+    if n == N:
+        return A_full
+    if n < N:
+        s = (N - n) // 2
+        return A_full[s:s + n, s:s + n]
+    raise ValueError("В файле матрица меньше требуемого N.")
+
+def print_matrix(m, title):
+    print(f"\n{title}:")
+    for row in m:
+        print(" ".join(f"{int(x):6d}" if float(x).is_integer() else f"{x:6.2f}" for x in row))
+
+def blocks(A):
+    n = A.shape[0]
+    h = n // 2
+    D = A[:h, :h]
+    E = A[:h, h:]
+    C = A[h:, :h]
+    B = A[h:, h:]
+    return D, E, C, B
+
+def count_zero_rows_in_B_even_cols(B):
+    if B.size == 0:
+        return 0
+    even_cols = (np.arange(B.shape[1]) % 2 == 1)
+    sub = B[:, even_cols]
+    return int(np.all(sub == 0, axis=1).sum())
+
+def sum_positive_in_E_even_rows(E):
+    if E.size == 0:
+        return 0.0
+    even_rows = (np.arange(E.shape[0]) % 2 == 1)
+    vals = E[even_rows, :]
+    return float(vals[vals > 0].sum())
+
+def swap_E_C_sym_main_diag(F):
+    n = F.shape[0]
+    h = n // 2
+    for i in range(h):
+        for j in range(h, n):
+            ii, jj = j, i
+            F[i, j], F[ii, jj] = F[ii, jj], F[i, j]
+
+def swap_B_E_nonsymmetric(F):
+    n = F.shape[0]
+    h = n // 2
+    coords_E = [(i, j) for i in range(0, h) for j in range(h, n)]
+    coords_B = [(i, j) for i in range(h, n) for j in range(h, n)]
+    for (ie, je), (ib, jb) in zip(coords_E, coords_B):
+        F[ie, je], F[ib, jb] = F[ib, jb], F[ie, je]
+
+def compute_result(A, F, K):
+    detA = float(np.linalg.det(A))
+    sumDiagF = float(np.trace(F))
+    if detA > sumDiagF:
+        try:
+            A_inv = np.linalg.inv(A)
+            F_inv = np.linalg.inv(F)
+        except np.linalg.LinAlgError:
+            A_inv = np.linalg.pinv(A)
+            F_inv = np.linalg.pinv(F)
+        R = A_inv @ A.T - K * F_inv
+    else:
+        G = np.tril(A)
+        R = (A.T + G - F.T) * K
+    return np.round(R, 2), detA, sumDiagF
+
+def plot_all(A, F, R):
+    fig, axs = plt.subplots(2, 2, figsize=(8, 8), constrained_layout=True)
+
+    axs[0, 0].plot(A.sum(axis=1), marker='o', label='Суммы по строкам A')
+    axs[0, 0].grid(True); axs[0, 0].legend(); axs[0, 0].set_title('Суммы строк матрицы A')
+    axs[0, 0].set_xlabel('Номер строки'); axs[0, 0].set_ylabel('Сумма')
+
+    axs[0, 1].hist(F.ravel(), bins=20, label='Элементы F')
+    axs[0, 1].grid(True); axs[0, 1].legend(); axs[0, 1].set_title('Гистограмма значений F')
+    axs[0, 1].set_xlabel('Значение'); axs[0, 1].set_ylabel('Частота')
+
+    axs[1, 0].scatter(A.ravel(), F.ravel(), alpha=0.7)
+    axs[1, 0].grid(True); axs[1, 0].set_title('Точечная диаграмма: A против F')
+    axs[1, 0].set_xlabel('Значения A'); axs[1, 0].set_ylabel('Значения F')
+
+    im = axs[1, 1].imshow(R, aspect='auto')
+    axs[1, 1].set_title('Тепловая карта результата')
+    fig.colorbar(im, ax=axs[1, 1], fraction=0.046, pad=0.04)
+
+    plt.show()
+
+def main():
+    K = float(input("Введите K: ").strip())
+    N = int(input("Введите N (чётное): ").strip())
+
+    A = read_matrix('matrix.txt', n=N)
+    if A.shape[0] % 2 == 1:
+        mid = A.shape[0] // 2
+        A = np.delete(np.delete(A, mid, axis=0), mid, axis=1)
+
+    print_matrix(A.astype(float), f"Матрица A ({A.shape[0]}×{A.shape[1]})")
+    F = A.copy()
+
+    D, E, C, B = blocks(F)
+    cnt_B = count_zero_rows_in_B_even_cols(B)
+    sum_E = sum_positive_in_E_even_rows(E)
+
+    print(f"\nСтрок с нулями в чётных столбцах блока B: {cnt_B}")
+    print(f"Сумма положительных элементов в чётных строках блока E: {sum_E:.0f}")
+
+    if cnt_B > sum_E:
+        print(f"Меняем E↔C симметрично по главной диагонали, потому что {cnt_B} > {int(sum_E)}")
+        swap_E_C_sym_main_diag(F)
+    else:
+        print(f"Меняем B↔E несимметрично (попарная перестановка), потому что {cnt_B} <= {int(sum_E)}")
+        swap_B_E_nonsymmetric(F)
+
+    print_matrix(F, "Матрица F (после преобразований)")
+
+    R, detA, sumDiagF = compute_result(A, F, K)
+    print(f"\nОпределитель det(A) = {detA:.2f}, сумма диагонали F = {sumDiagF:.2f}")
+    print_matrix(R, "Итоговая матрица Result")
+
+    plot_all(A, F, R)
+
+if __name__ == "__main__":
+    main()
