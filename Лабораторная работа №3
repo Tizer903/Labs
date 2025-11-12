@@ -1,79 +1,119 @@
 # Формируется матрица F следующим образом: если в В количество строк, состоящих из одних нулей в четных столбцах в области 2 больше, чем сумма положительных  элементов в четных строках в области 4, то поменять в С симметрично области 1 и 2 местами, иначе С и Е поменять местами несимметрично. При этом матрица А не меняется. После чего вычисляется выражение: ((К*F)*А– (K * AT) . Выводятся по мере формирования А, F и все матричные операции последовательно
-def print_m(m, name):
-    print(f"\n{name}:")
-    for row in m:
-        print(' '.join(f'{x:3}' for x in row))
+import copy
 
+def read_matrix_from_file(filename):
+    with open(filename, 'r', encoding='utf-8') as f:
+        return [list(map(int, line.split())) for line in f]
 
-def main():
-    K, N = int(input("K = ")), int(input("N = "))
+def extract_submatrix(M, n):
+    return [row[:n] for row in M[:n]]
 
-    A = []
-    for i in range(N):
-        row = []
-        for j in range(N):
-            row.append(i * N + j - 8)  
-        A.append(row)
-    print_m(A, "A")
+def print_matrix(M, title):
+    print(f"\n{title}:")
+    for r in M:
+        print(" ".join(f"{x:6}" for x in r))
 
-    h = N // 2
+def in_area1(i, j, n):
+    return j > i and i + j > n - 1
+def in_area2(i, j, n):
+    return j < i and i + j > n - 1
+def in_area3(i, j, n):
+    return j < i and i + j < n - 1
+def in_area4(i, j, n):
+    return j > i and i + j < n - 1
 
-    D = [A[i][:h] for i in range(h)]
-    E = [A[i][h:] for i in range(h)]
-    C = [A[i + h][:h] for i in range(h)]
-    B = [A[i + h][h:] for i in range(h)]
+def count_min_in_odd_cols_area2(M, n):
+    vals = []
+    for i in range(n):
+        for j in range(n):
+            if in_area2(i, j, n) and (j % 2 == 0):
+                vals.append(M[i][j])
+    if not vals:
+        return 0
+    m = min(vals)
+    return sum(1 for v in vals if v == m)
 
-    zero_rows = 0
-    for i in range(h // 2, h):
-        all_zero = True
-        for j in range(0, h, 2):
-            if B[i][j] != 0:
-                all_zero = False
-                break
-        if all_zero:
-            zero_rows += 1
+def count_max_in_even_rows_area1(M, n):
+    vals = []
+    for i in range(n):
+        for j in range(n):
+            if in_area1(i, j, n) and (i % 2 == 1):
+                vals.append(M[i][j])
+    if not vals:
+        return 0
+    m = max(vals)
+    return sum(1 for v in vals if v == m)
 
-    pos_sum = 0
-    for i in range(0, h // 2, 2):
-        for j in range(h):
-            if E[i][j] > 0:
-                pos_sum += E[i][j]
+def swap_areas_1_2_symmetrically(F, n):
+    for i in range(n):
+        for j in range(i+1, n):
+            if in_area1(i, j, n) and in_area2(j, i, n):
+                F[i][j], F[j][i] = F[j][i], F[i][j]
 
-    print(f"Нулевые строки в B: {zero_rows}, Сумма в E: {pos_sum}")
+def swap_areas_2_3_nonsymmetric(F, n):
+    area2_coords, area3_coords = [], []
+    for i in range(n):
+        for j in range(n):
+            if in_area2(i, j, n):
+                area2_coords.append((i, j))
+            elif in_area3(i, j, n):
+                area3_coords.append((i, j))
+    for (i2, j2), (i3, j3) in zip(area2_coords, area3_coords):
+        F[i2][j2], F[i3][j3] = F[i3][j3], F[i2][j2]
 
-    F = [row[:] for row in A]
+def transpose(M):
+    n = len(M)
+    return [[M[j][i] for j in range(n)] for i in range(n)]
 
-    if zero_rows > pos_sum:
-        print("Меняем области в C симметрично")
+def matmul(A, B):
+    n = len(A)
+    return [[sum(A[i][k]*B[k][j] for k in range(n)) for j in range(n)] for i in range(n)]
 
-        for i in range(h // 2, h):
-            for j in range(h // 2, h):
-                F[i + h][j], F[h + h - 1 - i][h - 1 - j] = F[h + h - 1 - i][h - 1 - j], F[i + h][j]
-    else:
-        print("Меняем C и E несимметрично")
-        for i in range(h):
-            for j in range(h):
-                F[i][j + h], F[i + h][j] = F[i + h][j], F[i][j + h]
+def matscale(M, k):
+    return [[k*x for x in row] for row in M]
 
-    print_m(F, "F")
+def matsum(A, B):
+    n = len(A)
+    return [[A[i][j]+B[i][j] for j in range(n)] for i in range(n)]
 
-    KF = [[F[i][j] * K for j in range(N)] for i in range(N)]
-    print_m(KF, "K*F")
+K = int(input("Введите число K: "))
+N = int(input("Введите число N: "))
 
-    KF_A = [[0] * N for _ in range(N)]
-    for i in range(N):
-        for j in range(N):
-            for k in range(N):
-                KF_A[i][j] += KF[i][k] * A[k][j]
-    print_m(KF_A, "(K*F)*A")
+try:
+    file_matrix = read_matrix_from_file("matrix.txt")
+    if len(file_matrix) < N or any(len(row) < N for row in file_matrix):
+        raise ValueError("Файл содержит матрицу меньшего размера, чем требуется.")
+    A = extract_submatrix(file_matrix, N)
+except Exception as e:
+    print(f"Ошибка чтения матрицы: {e}")
+    raise SystemExit
 
-    AT = [[A[j][i] for j in range(N)] for i in range(N)]
-    K_AT = [[AT[i][j] * K for j in range(N)] for i in range(N)]
-    print_m(K_AT, "K*A^T")
+print_matrix(A, "Матрица A (исходная). A НЕ меняется")
 
-    RES = [[KF_A[i][j] - K_AT[i][j] for j in range(N)] for i in range(N)]
-    print_m(RES, "РЕЗУЛЬТАТ")
+F = copy.deepcopy(A)
+c_min_area2 = count_min_in_odd_cols_area2(F, N)
+c_max_area1 = count_max_in_even_rows_area1(F, N)
 
+print(f"\nМин. в нечётных столбцах обл.2: {c_min_area2}")
+print(f"Макс. в чётных строках обл.1:   {c_max_area1}")
 
-if __name__ == "__main__":
-    main()
+if c_min_area2 > c_max_area1:
+    print(f"Меняем 1↔2 симметрично по главной диагонали, потому что {c_min_area2} > {c_max_area1}")
+    swap_areas_1_2_symmetrically(F, N)
+else:
+    print(f"Меняем 2↔3 несимметрично (попарная перестановка координат), потому что {c_min_area2} <= {c_max_area1}")
+    swap_areas_2_3_nonsymmetric(F, N)
+
+print_matrix(F, "Матрица F (после перестановки)")
+
+AA = matmul(A, A)
+print_matrix(AA, "A*A")
+
+AT = transpose(A)
+print_matrix(AT, "A^T")
+
+KAT = matscale(AT, K)
+print_matrix(KAT, "K*A^T")
+
+RES = matsum(AA, KAT)
+print_matrix(RES, "Результат: A*A + (K*A^T)")
