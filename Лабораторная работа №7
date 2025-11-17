@@ -1,0 +1,97 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from itertools import product
+
+women = ['Анна', 'Мария', 'Елена']
+men = ['Иван', 'Пётр', 'Сергей', 'Алексей', 'Дмитрий']
+
+women_rating = {
+    'Анна': 8,
+    'Мария': 7,
+    'Елена': 9
+}
+
+men_rating = {
+    'Иван': 6,
+    'Пётр': 9,
+    'Сергей': 7,
+    'Алексей': 8,
+    'Дмитрий': 5
+}
+
+
+def optimized_teams(women_list, men_list, w_rating, m_rating, min_total):
+    valid_teams = []
+    best_team = None
+    best_score = -1
+
+    for w, m in product(women_list, men_list):
+        total = w_rating[w] + m_rating[m]
+        if total >= min_total:
+            valid_teams.append((w, m, total))
+            if total > best_score:
+                best_score = total
+                best_team = (w, m, total)
+
+    return valid_teams, best_team
+
+
+def on_calculate():
+    try:
+        min_rating = int(entry_min_rating.get())
+    except ValueError:
+        messagebox.showerror("Ошибка ввода", "Минимальный рейтинг должен быть целым числом.")
+        return
+
+    valid_teams, best_team = optimized_teams(women, men, women_rating, men_rating, min_rating)
+
+    text_output.delete("1.0", tk.END)
+    text_output.insert(tk.END, f"Минимально допустимый суммарный рейтинг пары: {min_rating}\n")
+    text_output.insert(tk.END, f"Число подходящих составов: {len(valid_teams)}\n\n")
+
+    if not valid_teams:
+        text_output.insert(tk.END, "Нет пар, удовлетворяющих заданному ограничению по рейтингу.\n")
+        return
+
+    for i, (w, m, total) in enumerate(valid_teams, 1):
+        text_output.insert(tk.END, f"{i}) {w} и {m} — суммарный рейтинг {total}\n")
+
+    text_output.insert(tk.END, "\n")
+
+    if best_team is not None:
+        w_best, m_best, total_best = best_team
+        text_output.insert(
+            tk.END,
+            f"Оптимальный состав (максимальный суммарный рейтинг): "
+            f"{w_best} и {m_best} — {total_best}\n"
+        )
+
+
+root = tk.Tk()
+root.title("Подбор оптимального состава команды по теннису")
+root.geometry("700x500")
+
+input_frame = ttk.LabelFrame(root, text="Параметры отбора")
+input_frame.pack(fill="x", padx=10, pady=10)
+
+label_min_rating = ttk.Label(input_frame, text="Минимальный суммарный рейтинг пары:")
+label_min_rating.pack(side="left", padx=5, pady=5)
+
+entry_min_rating = ttk.Entry(input_frame, width=5)
+entry_min_rating.insert(0, "15")
+entry_min_rating.pack(side="left", padx=5, pady=5)
+
+calc_button = ttk.Button(input_frame, text="Сформировать команды", command=on_calculate)
+calc_button.pack(side="left", padx=10, pady=5)
+
+output_frame = ttk.LabelFrame(root, text="Результаты")
+output_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+text_output = tk.Text(output_frame, wrap="word")
+scrollbar = ttk.Scrollbar(output_frame, orient="vertical", command=text_output.yview)
+text_output.configure(yscrollcommand=scrollbar.set)
+
+text_output.pack(side="left", fill="both", expand=True)
+scrollbar.pack(side="right", fill="y")
+
+root.mainloop()
