@@ -1,0 +1,95 @@
+#Вариант 9. В команду для участия в турнире по теннису в смешанном разряде   подали заявку 3 женщины и 5 мужчин. Вывести все возможные варианты состава команды.
+from itertools import product
+import timeit
+
+women = ['Анна', 'Мария', 'Елена']
+men = ['Иван', 'Пётр', 'Сергей', 'Алексей', 'Дмитрий']
+
+
+def algorithmic_method(women_list, men_list):
+    teams = []
+    for w in women_list:
+        for m in men_list:
+            teams.append((w, m))
+    return teams
+
+
+def product_method(women_list, men_list):
+    return list(product(women_list, men_list))
+
+
+time_product = timeit.timeit(lambda: product_method(women, men), number=20)
+time_algo = timeit.timeit(lambda: algorithmic_method(women, men), number=20)
+
+prod_teams = product_method(women, men)
+algo_teams = algorithmic_method(women, men)
+
+print("Список команд, сформированный с помощью itertools.product:")
+for i, (w, m) in enumerate(prod_teams, 1):
+    print(f"{i}) {w} и {m}")
+
+print(f"\nВремя работы метода с itertools.product (10 запусков): {time_product:.6f} секунд")
+
+print("\nСписок команд, сформированный алгоритмическим способом (вложенные циклы):")
+for i, (w, m) in enumerate(algo_teams, 1):
+    print(f"{i}) {w} и {m}")
+
+print(f"\nВремя работы алгоритмического метода (10 запусков): {time_algo:.6f} секунд")
+
+print("\nСравнение времени выполнения:")
+if time_product < time_algo:
+    print(f"Метод с itertools.product быстрее алгоритмического на {time_algo - time_product:.6f} секунд (за 10 запусков).")
+elif time_product > time_algo:
+    print(f"Алгоритмический метод быстрее метода с itertools.product на {time_product - time_algo:.6f} секунд (за 10 запусков).")
+else:
+    print("Время выполнения обоих методов примерно одинаковое.")
+
+# ================== ЧАСТЬ 2: УСЛОЖНЁННАЯ ЗАДАЧА ==================
+
+women_rating = {
+    'Анна': 8,
+    'Мария': 7,
+    'Елена': 9
+}
+
+men_rating = {
+    'Иван': 6,
+    'Пётр': 9,
+    'Сергей': 7,
+    'Алексей': 8,
+    'Дмитрий': 5
+}
+
+min_total_rating = 15
+
+
+def optimized_teams(women_list, men_list, w_rating, m_rating, min_total):
+    valid_teams = []
+    best_team = None
+    best_score = -1
+
+    for w, m in product(women_list, men_list):
+        total = w_rating[w] + m_rating[m]
+        if total >= min_total:
+            valid_teams.append((w, m, total))
+            if total > best_score:
+                best_score = total
+                best_team = (w, m, total)
+
+    return valid_teams, best_team
+
+
+valid_teams, best_team = optimized_teams(women, men, women_rating, men_rating, min_total_rating)
+
+print(f"\n--- Оптимизация состава команды ---")
+print(f"Минимально допустимый суммарный рейтинг пары: {min_total_rating}")
+print(f"Число подходящих составов: {len(valid_teams)}")
+
+for i, (w, m, total) in enumerate(valid_teams, 1):
+    print(f"{i}) {w} и {m} — суммарный рейтинг {total}")
+
+if best_team is not None:
+    w, m, total = best_team
+    print(f"\nОптимальный состав (максимальный суммарный рейтинг): {w} и {m} — {total}")
+else:
+    print("\nНет пар, удовлетворяющих заданному ограничению по рейтингу.")
