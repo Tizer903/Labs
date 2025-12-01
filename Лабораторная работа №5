@@ -1,8 +1,7 @@
-#Вариант 9. В команду для участия в турнире по теннису в смешанном разряде   подали заявку 3 женщины и 5 мужчин. Вывести все возможные варианты состава команды.
 from itertools import product
 import timeit
 
-women = ['Анна', 'Мария', 'Елена']
+women = ['Анна', 'Мария', 'Елена', 'Ольга']
 men = ['Иван', 'Пётр', 'Сергей', 'Алексей', 'Дмитрий']
 
 
@@ -28,68 +27,135 @@ print("Список команд, сформированный с помощью
 for i, (w, m) in enumerate(prod_teams, 1):
     print(f"{i}) {w} и {m}")
 
-print(f"\nВремя работы метода с itertools.product (10 запусков): {time_product:.6f} секунд")
+print(f"\nВремя работы метода с itertools.product (20 запусков): {time_product:.6f} секунд")
 
 print("\nСписок команд, сформированный алгоритмическим способом (вложенные циклы):")
 for i, (w, m) in enumerate(algo_teams, 1):
     print(f"{i}) {w} и {m}")
 
-print(f"\nВремя работы алгоритмического метода (10 запусков): {time_algo:.6f} секунд")
+print(f"\nВремя работы алгоритмического метода (20 запусков): {time_algo:.6f} секунд")
 
 print("\nСравнение времени выполнения:")
 if time_product < time_algo:
-    print(f"Метод с itertools.product быстрее алгоритмического на {time_algo - time_product:.6f} секунд (за 10 запусков).")
+    print(f"Метод с itertools.product быстрее алгоритмического на {time_algo - time_product:.6f} секунд (за 20 запусков).")
 elif time_product > time_algo:
-    print(f"Алгоритмический метод быстрее метода с itertools.product на {time_product - time_algo:.6f} секунд (за 10 запусков).")
+    print(f"Алгоритмический метод быстрее метода с itertools.product на {time_product - time_algo:.6f} секунд (за 20 запусков).")
 else:
     print("Время выполнения обоих методов примерно одинаковое.")
 
-# ================== ЧАСТЬ 2: УСЛОЖНЁННАЯ ЗАДАЧА ==================
 
-women_rating = {
-    'Анна': 8,
-    'Мария': 7,
-    'Елена': 9
+women_props = {
+    'Анна': {'rating': 8, 'speed': 7},
+    'Мария': {'rating': 7, 'speed': 5},
+    'Елена': {'rating': 9, 'speed': 8},
+    'Ольга': {'rating': 4, 'speed': 7},
 }
 
-men_rating = {
-    'Иван': 6,
-    'Пётр': 9,
-    'Сергей': 7,
-    'Алексей': 8,
-    'Дмитрий': 5
+men_props = {
+    'Иван': {'rating': 6, 'speed': 6},
+    'Пётр': {'rating': 9, 'speed': 7},
+    'Сергей': {'rating': 7, 'speed': 5},
+    'Алексей': {'rating': 8, 'speed': 8},
+    'Дмитрий': {'rating': 5, 'speed': 4},
 }
 
 min_total_rating = 15
+min_speed = 6
+
+max_man_rating = max(m['rating'] for m in men_props.values())
 
 
-def optimized_teams(women_list, men_list, w_rating, m_rating, min_total):
-    valid_teams = []
-    best_team = None
-    best_score = -1
-
-    for w, m in product(women_list, men_list):
-        total = w_rating[w] + m_rating[m]
-        if total >= min_total:
-            valid_teams.append((w, m, total))
-            if total > best_score:
-                best_score = total
-                best_team = (w, m, total)
-
-    return valid_teams, best_team
+def objective(w, m):
+    return women_props[w]['rating'] + men_props[m]['rating']
 
 
-valid_teams, best_team = optimized_teams(women, men, women_rating, men_rating, min_total_rating)
+def satisfies_constraints(w, m):
+    return (
+        women_props[w]['speed'] >= min_speed and
+        men_props[m]['speed'] >= min_speed and
+        objective(w, m) >= min_total_rating
+    )
 
-print(f"\n--- Оптимизация состава команды ---")
-print(f"Минимально допустимый суммарный рейтинг пары: {min_total_rating}")
-print(f"Число подходящих составов: {len(valid_teams)}")
 
-for i, (w, m, total) in enumerate(valid_teams, 1):
+def brute_force_search():
+    best_pair = None
+    best_value = -1
+    checked = 0
+    valid_pairs = []
+
+    for w in women:
+        for m in men:
+            checked += 1
+            if satisfies_constraints(w, m):
+                value = objective(w, m)
+                valid_pairs.append((w, m, value))
+                if value > best_value:
+                    best_value = value
+                    best_pair = (w, m, value)
+    return valid_pairs, best_pair, checked
+
+
+def optimized_search():
+    best_pair = None
+    best_value = -1
+    checked = 0
+    valid_pairs = []
+
+    for w in women:
+        if women_props[w]['rating'] + max_man_rating < min_total_rating:
+            continue
+
+        for m in men:
+            if women_props[w]['speed'] < min_speed or men_props[m]['speed'] < min_speed:
+                continue
+
+            checked += 1
+
+            value = objective(w, m)
+            if value >= min_total_rating:
+                valid_pairs.append((w, m, value))
+                if value > best_value:
+                    best_value = value
+                    best_pair = (w, m, value)
+
+    return valid_pairs, best_pair, checked
+
+
+total_pairs = len(women) * len(men)
+
+valid_brute, best_brute, checked_brute = brute_force_search()
+valid_opt, best_opt, checked_opt = optimized_search()
+
+print("\n--- Оптимизация состава команды ---")
+print(f"Всего возможных пар (без каких-либо ограничений): {total_pairs}")
+
+print("\nОграничения на характеристики:")
+print(f"- минимальный суммарный рейтинг пары: {min_total_rating}")
+print(f"- минимальная скорость каждого участника: {min_speed}")
+
+print("\nПары, удовлетворяющие всем ограничениям (по полному перебору):")
+for i, (w, m, total) in enumerate(valid_brute, 1):
     print(f"{i}) {w} и {m} — суммарный рейтинг {total}")
 
-if best_team is not None:
-    w, m, total = best_team
-    print(f"\nОптимальный состав (максимальный суммарный рейтинг): {w} и {m} — {total}")
+if best_brute is not None:
+    w_b, m_b, total_b = best_brute
+    print(f"\nОптимальный состав (по полной проверке): {w_b} и {m_b} — {total_b}")
 else:
-    print("\nНет пар, удовлетворяющих заданному ограничению по рейтингу.")
+    print("\nНет пар, удовлетворяющих заданным ограничениям.")
+
+print("\n--- Сравнение грубого перебора и оптимизированного алгоритма ---")
+print(f"Полный перебор проверил пар: {checked_brute}")
+print(f"Оптимизированный алгоритм проверил пар: {checked_opt}")
+print(f"Сокращение количества проверок: {checked_brute - checked_opt}")
+
+if best_brute is not None and best_opt is not None:
+    same = (best_brute[0] == best_opt[0]) and (best_brute[1] == best_opt[1])
+    print(f"\nСовпадает ли оптимальное решение у обоих методов? {'Да' if same else 'Нет'}")
+
+time_brute = timeit.timeit(brute_force_search, number=500)
+time_opt = timeit.timeit(optimized_search, number=500)
+
+print("\nВремя работы методов поиска оптимального решения (500 запусков):")
+print(f"- полный перебор: {time_brute:.6f} секунд")
+print(f"- с грубой оптимизацией: {time_opt:.6f} секунд")
+print(f"Ускорение: {time_brute - time_opt:.6f} секунд (если > 0, то оптимизация быстрее).")
