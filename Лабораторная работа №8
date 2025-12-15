@@ -1,0 +1,195 @@
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+from datetime import datetime
+
+class Tour:
+    def __init__(self, dest, kind, mgr, price, date, days):
+        self.dest, self.kind, self.mgr = dest, kind, mgr
+        self.price, self.date, self.days = price, date, days
+
+    @staticmethod
+    def parse(line):
+        s = line.strip()
+        if not s:
+            raise ValueError("Пустая строка")
+        p = [x.strip().strip('"').strip("'") for x in (s.split(",") if "," in s else s.split())]
+        if len(p) != 6:
+            raise ValueError("Ожидается 6 полей: destination rest_type manager price start_date duration_days")
+        dest, kind, mgr, price_s, date_s, days_s = p
+        if not dest: raise ValueError("destination пустой")
+        if not kind: raise ValueError("rest_type пустой")
+        if not mgr:  raise ValueError("manager пустой")
+        try:
+            price = float(price_s.replace(" ", "").replace(",", "."))
+        except:
+            raise ValueError("price должен быть числом")
+        if price < 0: raise ValueError("price < 0")
+        try:
+            datetime.strptime(date_s, "%Y-%m-%d")
+        except:
+            raise ValueError("start_date должен быть YYYY-MM-DD")
+        try:
+            days = int(days_s)
+        except:
+            raise ValueError("duration_days должен быть целым")
+        if days <= 0: raise ValueError("duration_days должен быть > 0")
+        return Tour(dest, kind, mgr, price, date_s, days)
+
+class Repo:
+    def __init__(self):
+        self.items = []
+
+    def load(self, path):
+        self.items = []
+        errs = []
+        with open(path, "r", encoding="utf-8") as f:
+            for i, line in enumerate(f, 1):
+                if not line.strip():
+                    continue
+                try:
+                    self.items.append(Tour.parse(line))
+                except Exception as e:
+                    errs.append(f"Строка {i}: {e}")
+        return errs
+
+    def segment(self, attr):
+        d = {}
+        for t in self.items:
+            k = getattr(t, attr)
+            d[k] = d.get(k, 0) + 1
+        return dict(sorted(d.items(), key=lambda kv: (-kv[1], kv[0].lower())))
+
+class Pie(tk.Canvas):
+    def __init__(self, master, **kw):
+        super().__init__(master, highlightthickness=0, **kw)
+        self.data = None
+        self.bind("<Configure>", lambda e: self.redraw())
+
+    def set(self, title, data):
+        self.data = (title, data)
+        self.redraw()
+
+    def _hsv(self, h, s, v):
+        i = int(h * 6); f = h * 6 - i
+        p = v * (1 - s); q = v * (1 - f * s); t = v * (1 - (1 - f) * s)
+        i %= 6
+        r, g, b = [(v, t, p), (q, v, p), (p, v, t), (p, q, v), (t, p, v), (v, p, q)][i]
+        return f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+
+    def _color(self, i):
+        return self._hsv((i * 0.61803398875) % 1.0, 0.55, 0.92)
+
+    def _placeholder(self, text):
+        w, h = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
+        self.create_rectangle(12, 12, w - 12, h - 12, outline="#c9c9c9")
+        self.create_text(w / 2, h / 2, text=text, font=("Segoe UI", 12), fill="#444", justify="center")
+
+    def redraw(self):
+        self.delete("all")
+        if not self.data:
+            return self._placeholder("Загрузите файл и выполните сегментацию")
+        title, data = self.data
+        if not data:
+            return self._placeholder("Нет данных для диаграммы")
+        w, h = max(self.winfo_width(), 1), max(self.winfo_height(), 1)
+        pad, th = 16, 34
+        legend_w = max(int(w * 0.38), 240)
+        l, t = pad, pad + th
+        r, b = w - pad - legend_w, h - pad
+        if r - l < 160 or b - t < 160:
+            return self._placeholder("Увеличьте окно для отображения диаграммы")
+        self.create_text(pad, pad + 6, anchor="nw", text=title, font=("Segoe UI", 14, "bold"))
+        labels, vals = list(data.keys()), list(data.values())
+        total = sum(vals)
+        if total <= 0:
+            return self._placeholder("Некорректные данные")
+        size = min(r - l, b - t)
+        x0 = l + (r - l - size) / 2; y0 = t + (b - t - size) / 2
+        x1 = x0 + size; y1 = y0 + size
+        start = 0.0
+        for i, v in enumerate(vals):
+            ext = 360.0 * v / total
+            self.create_arc(x0, y0, x1, y1, start=start, extent=ext, fill=self._color(i), outline="white", width=2)
+            start += ext
+        lx, ly, rh = w - pad - legend_w + 10, pad + th, 22
+        for i, (lab, v) in enumerate(zip(labels, vals)):
+            y = ly + i * rh
+            if y + rh > h - pad:
+                break
+            c = self._color(i); pct = (v / total) * 100
+            self.create_rectangle(lx, y + 4, lx + 14, y + 18, fill=c, outline=c)
+            self.create_text(lx + 20, y + 3, anchor="nw", text=f"{lab} — {v} ({pct:.1f}%)", font=("Segoe UI", 10))
+
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Туристические путевки | ООП + Tkinter")
+        self.geometry("1100x650"); self.minsize(900, 560)
+        self.repo = Repo()
+        self._ui()
+
+    def _ui(self):
+        self.columnconfigure(0, weight=1); self.rowconfigure(1, weight=1)
+        top = ttk.Frame(self, padding=10); top.grid(row=0, column=0, sticky="ew")
+        top.columnconfigure(3, weight=1)
+        ttk.Button(top, text="Открыть файл", command=self.load).grid(row=0, column=0, padx=(0, 8))
+        self.b1 = ttk.Button(top, text="Сегментация по видам отдыха", command=self.seg_kind, state="disabled")
+        self.b2 = ttk.Button(top, text="Сегментация по менеджерам", command=self.seg_mgr, state="disabled")
+        self.b1.grid(row=0, column=1, padx=(0, 8)); self.b2.grid(row=0, column=2, padx=(0, 8))
+        self.status = tk.StringVar(value="Готово")
+        ttk.Label(top, textvariable=self.status).grid(row=0, column=4, sticky="e")
+        pan = ttk.PanedWindow(self, orient="horizontal"); pan.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        left = ttk.Frame(pan, padding=10); right = ttk.Frame(pan, padding=10)
+        pan.add(left, weight=1); pan.add(right, weight=2)
+        left.columnconfigure(0, weight=1); left.rowconfigure(1, weight=1)
+        ttk.Label(left, text="Полный список путевок", font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 6))
+        cols = ("d", "k", "m", "p", "dt", "n")
+        self.tree = ttk.Treeview(left, columns=cols, show="headings", height=15)
+        heads = [("d", "Направление", 170, "w"), ("k", "Вид отдыха", 150, "w"), ("m", "Менеджер", 140, "w"),
+                 ("p", "Цена", 90, "e"), ("dt", "Дата начала", 110, "center"), ("n", "Дней", 70, "center")]
+        for c, t, w, a in heads:
+            self.tree.heading(c, text=t); self.tree.column(c, width=w, anchor=a)
+        sb = ttk.Scrollbar(left, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=sb.set)
+        self.tree.grid(row=1, column=0, sticky="nsew"); sb.grid(row=1, column=1, sticky="ns")
+        right.columnconfigure(0, weight=1); right.rowconfigure(1, weight=1)
+        ttk.Label(right, text="Визуализация сегментации (круговая диаграмма)", font=("Segoe UI", 11, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 6))
+        self.pie = Pie(right, bg="white"); self.pie.grid(row=1, column=0, sticky="nsew")
+        bot = ttk.Frame(self, padding=(10, 0, 10, 10)); bot.grid(row=2, column=0, sticky="ew")
+        msg = ("Формат: 6 полей, разделитель запятая или пробелы.\n"
+               "destination rest_type manager price start_date duration_days\n"
+               "Пример: Turkey Beach Ivanov 799.99 2026-06-15 7")
+        ttk.Label(bot, text=msg, wraplength=1050, justify="left", foreground="#333").grid(row=0, column=0, sticky="w")
+
+    def _render(self):
+        self.tree.delete(*self.tree.get_children())
+        for t in self.repo.items:
+            self.tree.insert("", "end", values=(t.dest, t.kind, t.mgr, f"{t.price:.2f}", t.date, str(t.days)))
+
+    def load(self):
+        path = filedialog.askopenfilename(title="Выберите файл", filetypes=[("Text files", "*.txt *.dat *.log *.csv"), ("All files", "*.*")])
+        if not path:
+            return
+        errs = self.repo.load(path)
+        self._render()
+        ok = len(self.repo.items)
+        self.b1.configure(state="normal" if ok else "disabled")
+        self.b2.configure(state="normal" if ok else "disabled")
+        self.pie.set("Диаграмма", {})
+        self.status.set(f"Загружено: {ok} | Ошибок: {len(errs)}" if errs else f"Загружено: {ok}")
+        if errs:
+            text = "\n".join(errs[:12]) + (f"\n... и еще {len(errs)-12}" if len(errs) > 12 else "")
+            messagebox.showwarning("Ошибки ввода", text)
+
+    def seg_kind(self):
+        d = self.repo.segment("kind")
+        self.pie.set("Сегментация по видам отдыха", d)
+        self.status.set(f"Сегментация по видам отдыха | Категорий: {len(d)}")
+
+    def seg_mgr(self):
+        d = self.repo.segment("mgr")
+        self.pie.set("Сегментация по менеджерам", d)
+        self.status.set(f"Сегментация по менеджерам | Менеджеров: {len(d)}")
+
+if __name__ == "__main__":
+    App().mainloop()
