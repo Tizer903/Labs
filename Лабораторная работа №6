@@ -1,6 +1,5 @@
 import math
 import timeit
-import pandas as pd
 import matplotlib.pyplot as plt
 
 
@@ -54,23 +53,27 @@ if __name__ == "__main__":
 
         results.append((n, value_rec, value_itr, rec_time, itr_time))
 
-    df = pd.DataFrame(
-        results,
-        columns=[
-            "n",
-            "F(n) рекурсивно",
-            "F(n) итеративно",
-            "Время рекурсии (с)",
-            "Время итерации (с)",
-        ],
-    )
-
     print("=== Сравнение значений и времени вычисления F(n) ===")
-    print(df.to_string(index=False))
+    print(
+        f"{'n':^3} | {'F(n) рекурсивно':^20} | {'F(n) итеративно':^20} | "
+        f"{'Время рекурсии (с)':^20} | {'Время итерации (с)':^20}"
+    )
+    print("-" * 95)
+
+    for row in results:
+        n, value_rec, value_itr, rec_time, itr_time = row
+        print(
+            f"{n:^3} | {value_rec:^20.10e} | {value_itr:^20.10e} | "
+            f"{rec_time:^20.10f} | {itr_time:^20.10f}"
+        )
+
+    n_values = [row[0] for row in results]
+    rec_times = [row[3] for row in results]
+    itr_times = [row[4] for row in results]
 
     plt.figure(figsize=(6, 4))
-    plt.plot(df["n"], df["Время рекурсии (с)"], marker="o", label="Рекурсивный подход")
-    plt.plot(df["n"], df["Время итерации (с)"], marker="o", label="Итерационный подход")
+    plt.plot(n_values, rec_times, marker="o", label="Рекурсивный подход")
+    plt.plot(n_values, itr_times, marker="o", label="Итерационный подход")
     plt.xlabel("n")
     plt.ylabel("Время вычисления, с")
     plt.title("Сравнение рекурсивного и итерационного вычисления F(n)")
