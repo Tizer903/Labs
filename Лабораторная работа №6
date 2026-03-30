@@ -4,47 +4,35 @@ import matplotlib.pyplot as plt
 
 
 def F_recursive(n: int) -> float:
-    if n <= 0:
-        raise ValueError("n должно быть натуральным (n >= 1)")
-    if n <= 2:
+    if n < 0:
+        raise ValueError("n должно быть неотрицательным")
+    if n < 2:
         return 10.0
-    sign = -1.0 if (n % 2 == 1) else 1.0
-    fact = math.factorial(2 * n + 2)
-    f_prev1 = F_recursive(n - 1)
-    f_prev2 = F_recursive(n - 2)
-    return sign * (f_prev1 + f_prev2) / fact
+    return ((-1) ** n) * (F_recursive(n - 1) + F_recursive(n - 2)) / math.factorial(2 * n + 2)
 
 
 def F_iterative(n: int) -> float:
-    if n <= 0:
-        raise ValueError("n должно быть натуральным (n >= 1)")
-    if n <= 2:
+    if n < 0:
+        raise ValueError("n должно быть неотрицательным")
+    if n < 2:
         return 10.0
 
-    F_prev2 = 10.0
-    F_prev1 = 10.0
+    f_prev2 = 10.0  # F(0)
+    f_prev1 = 10.0  # F(1)
 
-    fact = 1
-    for k in range(1, 7):
-        fact *= k
+    for i in range(2, n + 1):
+        f_curr = ((-1) ** i) * (f_prev1 + f_prev2) / math.factorial(2 * i + 2) ## изменение
+        f_prev2 = f_prev1
+        f_prev1 = f_curr
 
-    sign = 1.0
-
-    for i in range(3, n + 1):
-        sign *= -1.0
-        fact *= (2 * i + 1) * (2 * i + 2)
-        F_curr = sign * (F_prev1 + F_prev2) / fact
-        F_prev2 = F_prev1
-        F_prev1 = F_curr
-
-    return F_prev1
+    return f_prev1
 
 
 if __name__ == "__main__":
     max_n = 20
     results = []
 
-    for n in range(1, max_n + 1):
+    for n in range(0, max_n + 1):
         value_rec = F_recursive(n)
         value_itr = F_iterative(n)
 
@@ -71,7 +59,7 @@ if __name__ == "__main__":
     rec_times = [row[3] for row in results]
     itr_times = [row[4] for row in results]
 
-    plt.figure(figsize=(6, 4))
+    plt.figure(figsize=(8, 5))
     plt.plot(n_values, rec_times, marker="o", label="Рекурсивный подход")
     plt.plot(n_values, itr_times, marker="o", label="Итерационный подход")
     plt.xlabel("n")
